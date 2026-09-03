@@ -18,11 +18,12 @@ jobs:
         wget https://github.com/SagerNet/sing-box/archive/refs/tags/v1.8.14.tar.gz
         tar -xzf v1.8.14.tar.gz
     
-    - name: Remove unwanted protocols and comment out GeoIP/GeoSite
+    - name: Remove unwanted protocols (client only)
       run: |
         cd sing-box-1.8.14
         
         # ========== 入站协议清理 ==========
+        # 保留 http 入站，删除其他所有入站
         sed -i '/inbound\/direct/d' adapter/inbound.go
         sed -i '/inbound\/hysteria2/d' adapter/inbound.go
         sed -i '/inbound\/mixed/d' adapter/inbound.go
@@ -39,6 +40,7 @@ jobs:
         sed -i '/inbound\/wireguard/d' adapter/inbound.go
         
         # ========== 出站协议清理 ==========
+        # 保留: shadowsocks, hysteria2, tuic, http, dns, direct, block
         sed -i '/outbound\/tor/d' adapter/outbound.go
         sed -i '/outbound\/ssh/d' adapter/outbound.go
         sed -i '/outbound\/urltest/d' adapter/outbound.go
@@ -62,26 +64,15 @@ jobs:
           sed -i '/ShadowTLS/d' "$file"
         done
         
-        # ========== 删除传输协议目录（安全） ==========
-        cd transport
-        rm -rf v2raygrpc
-        rm -rf v2rayhttp
-        rm -rf v2rayhttpupgrade
-        rm -rf v2rayquic
-        rm -rf v2raywebsocket
-        rm -rf tomato
-        rm -rf shadowsocks
-        cd ..
-        
-        # ========== 注释掉 GeoIP/GeoSite 相关代码（使用 Python 脚本） ==========
+        # ========== 注释掉 GeoIP/GeoSite（使用 Python 脚本） ==========
         python3 << 'PYEOF'
         import re
+        import os
 
         # 1. 注释掉 option/route.go 中的 GeoIP/GeoSite 字段和类型定义
         with open('option/route.go', 'r') as f:
             content = f.read()
 
-        # 注释掉 RouteOptions 中的 GeoIP 和 GeoSite 字段
         content = re.sub(
             r'(\s*)(GeoIP\s+\*GeoIPOptions\s+`json:"geoip,omitempty"`)',
             r'\1// \2',
@@ -93,7 +84,6 @@ jobs:
             content
         )
 
-        # 注释掉 GeoIPOptions 和 GeoSiteOptions 类型定义（整个结构）
         content = re.sub(
             r'(type GeoIPOptions struct \{.*?\n\})',
             r'/* \1 */',
@@ -107,7 +97,6 @@ jobs:
             flags=re.DOTALL
         )
 
-        # 注释掉 Rule 结构中的 GeoIP 和 GeoSite 字段
         content = re.sub(
             r'(\s*)(GeoIP\s+\[\]string\s+`json:"geoip,omitempty"`)',
             r'\1// \2',
@@ -122,46 +111,26 @@ jobs:
         with open('option/route.go', 'w') as f:
             f.write(content)
 
-        # 2. 注释掉 route/router.go 中所有包含 GeoIP 或 GeoSite 的语句
-        #    使用简单的方法：将包含 GeoIP 或 GeoSite 的整行注释掉
-        #    如果一行中有其他代码，这种方法可能会破坏语法，但 GeoIP/GeoSite 通常单独成行
-        with open('route/router.go', 'r') as f:
-            lines = f.readlines()
-
-        new_lines = []
-        for line in lines:
-            if 'GeoIP' in line or 'GeoSite' in line:
-                # 去除行首空白，添加注释符号
-                stripped = line.lstrip()
-                indent = line[:len(line)-len(stripped)]
-                new_lines.append(f"{indent}// {stripped}")
-            else:
-                new_lines.append(line)
-
-        with open('route/router.go', 'w') as f:
-            f.writelines(new_lines)
-
-        # 3. 全局兜底：注释掉其他文件中可能存在的 GeoIP/GeoSite 引用
-        import os
+        # 2. 注释掉所有其他 Go 文件中包含 GeoIP 或 GeoSite 的行
         for root, dirs, files in os.walk('.'):
             for file in files:
                 if file.endswith('.go'):
                     filepath = os.path.join(root, file)
                     with open(filepath, 'r') as f:
-                        content = f.read()
-                    if 'GeoIP' in content or 'GeoSite' in content:
-                        # 使用正则将包含 GeoIP/GeoSite 的行注释掉
-                        lines = content.split('\n')
-                        new_lines = []
-                        for line in lines:
-                            if 'GeoIP' in line or 'GeoSite' in line:
-                                stripped = line.lstrip()
-                                indent = line[:len(line)-len(stripped)]
-                                new_lines.append(f"{indent}// {stripped}")
-                            else:
-                                new_lines.append(line)
+                        lines = f.readlines()
+                    new_lines = []
+                    changed = False
+                    for line in lines:
+                        if 'GeoIP' in line or 'GeoSite' in line:
+                            stripped = line.lstrip()
+                            indent = line[:len(line)-len(stripped)]
+                            new_lines.append(f"{indent}// {stripped}")
+                            changed = True
+                        else:
+                            new_lines.append(line)
+                    if changed:
                         with open(filepath, 'w') as f:
-                            f.write('\n'.join(new_lines))
+                            f.writelines(new_lines)
         print("GeoIP/GeoSite code commented out.")
         PYEOF
         
