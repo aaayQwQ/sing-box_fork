@@ -49,22 +49,6 @@ jobs:
         sed -i '/outbound\/socks/d' adapter/outbound.go
         sed -i '/outbound\/selector/d' adapter/outbound.go
         
-        # ========== 传输协议删除 ==========
-        cd transport
-        rm -rf v2raygrpc
-        rm -rf v2rayhttp
-        rm -rf v2rayhttpupgrade
-        rm -rf v2rayquic
-        rm -rf v2raywebsocket
-        rm -rf shadowtls
-        rm -rf tomato
-        rm -rf shadowsocks
-        cd ..
-        
-        grep -rl "v2raygrpc\|v2rayhttp\|v2rayquic\|v2raywebsocket\|shadowtls\|tomato" --include="*.go" . | while read file; do
-          sed -i '/v2raygrpc/d;/v2rayhttp/d;/v2rayquic/d;/v2raywebsocket/d;/shadowtls/d;/tomato/d' "$file"
-        done
-        
         # ========== 修复所有 ShadowTLS 引用 ==========
         sed -i '/TypeShadowTLS/d' constant/proxy.go
         sed -i '/ShadowTLS/d' constant/proxy.go
@@ -72,6 +56,10 @@ jobs:
         sed -i '/TypeShadowTLS/d' option/outbound.go
         
         # ========== 删除 V2RayAPI ==========
+        # 删除 experimental/v2rayapi.go（整个文件）
+        rm -f experimental/v2rayapi.go
+        
+        # 删除 option/experimental.go 中的 V2RayAPI 字段和类型定义
         sed -i '/V2RayAPI[[:space:]]*\*V2RayAPIOptions/d' option/experimental.go
         sed -i '/type V2RayAPIOptions struct/,/^}/d' option/experimental.go
         
