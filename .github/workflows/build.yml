@@ -58,12 +58,11 @@ jobs:
         rm -f transport/shadowtls.go
         rm -f option/shadowtls.go
         
-        # 删除所有文件中包含 ShadowTLS 或 TypeShadowTLS 的行
         grep -rl "ShadowTLS" --include="*.go" . | while read file; do
           sed -i '/ShadowTLS/d' "$file"
         done
         
-        # ========== 删除 V2RayAPI 相关文件 ==========
+        # ========== 删除 V2RayAPI 相关文件和引用 ==========
         rm -f experimental/v2rayapi.go
         rm -f include/v2rayapi_stub.go
         rm -f include/v2rayapi.go
@@ -71,13 +70,22 @@ jobs:
         sed -i '/V2RayAPI[[:space:]]*\*V2RayAPIOptions/d' option/experimental.go
         sed -i '/type V2RayAPIOptions struct/,/^}/d' option/experimental.go
         
-        # ========== 删除 GeoIP/GeoSite ==========
+        # ========== 删除 GeoIP/GeoSite 相关文件和引用 ==========
+        # 删除 option/route.go 中的字段和类型定义
         sed -i '/GeoIP[[:space:]]*\*GeoIPOptions/d' option/route.go
         sed -i '/GeoSite[[:space:]]*\*GeoSiteOptions/d' option/route.go
         sed -i '/type GeoIPOptions struct/,/^}/d' option/route.go
         sed -i '/type GeoSiteOptions struct/,/^}/d' option/route.go
         sed -i '/GeoIP[[:space:]]*\[\]string/d' option/route.go
         sed -i '/GeoSite[[:space:]]*\[\]string/d' option/route.go
+        
+        # 删除 route/router.go 中对 GeoIP/GeoSite 的引用
+        sed -i '/GeoIP/d;/GeoSite/d' route/router.go
+        
+        # 全局兜底：删除所有 Go 文件中包含 GeoIP 或 GeoSite 的行
+        grep -rl "GeoIP\|GeoSite" --include="*.go" . | while read file; do
+          sed -i '/GeoIP/d;/GeoSite/d' "$file"
+        done
         
         # ========== 端点清理 ==========
         find . -name "*tailscale*" -type d -exec rm -rf {} + 2>/dev/null || true
