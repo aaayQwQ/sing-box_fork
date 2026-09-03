@@ -70,6 +70,11 @@ jobs:
           sed -i '/v2raygrpc/d;/v2rayhttp/d;/v2rayquic/d;/v2raywebsocket/d;/shadowtls/d;/tomato/d' "$file"
         done
         
+        # ========== 修复 constant/proxy.go ==========
+        # 删除 ShadowTLS 相关定义
+        sed -i '/TypeShadowTLS/d' constant/proxy.go
+        sed -i '/ShadowTLS/d' constant/proxy.go
+        
         # ========== 删除 GeoIP/GeoSite ==========
         grep -rl "geoip\|GeoIP\|geosite\|GeoSite" --include="*.go" . | while read file; do
           sed -i '/geoip/d;/GeoIP/d;/geosite/d;/GeoSite/d' "$file"
