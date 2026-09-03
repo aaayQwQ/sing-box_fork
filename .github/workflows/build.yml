@@ -44,10 +44,6 @@ jobs:
         sed -i '/outbound\/tor/d' adapter/outbound.go
         sed -i '/outbound\/ssh/d' adapter/outbound.go
         
-        # 注意：不删除传输协议！保留所有传输协议，避免编译错误
-        # 传输协议虽然会增加一些体积，但不会影响功能
-        # 如果确实要删除，需要修改 transport/v2ray/transport.go 中的注册代码
-        
         # ========== 端点清理 ==========
         # 查找并删除 tailscale
         find . -name "*tailscale*" -type d -exec rm -rf {} + 2>/dev/null || true
@@ -55,15 +51,15 @@ jobs:
         
         # 从 Go 文件中删除 tailscale 引用
         grep -rl "tailscale" --include="*.go" . | while read file; do
-          # 只删除 import 行，不删除函数体
           sed -i '/tailscale/d' "$file"
         done
         
         echo "=== 清理完成 ==="
         echo "保留的入站协议："
-        grep "inbound/" adapter/inbound.go || echo "只有 mixed"
+        grep "inbound/" adapter/inbound.go || true
         echo "保留的出站协议："
-        grep "outbound/" adapter/outbound.go
+        grep "outbound/" adapter/outbound.go || true
+        echo "=== 继续编译 ==="
     
     - name: Build Windows 386
       run: |
