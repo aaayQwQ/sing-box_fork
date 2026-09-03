@@ -23,6 +23,7 @@ jobs:
         cd sing-box-1.8.14
         
         # ========== 入站协议清理 ==========
+        # 只保留 http 入站
         sed -i '/inbound\/direct/d' adapter/inbound.go
         sed -i '/inbound\/hysteria2/d' adapter/inbound.go
         sed -i '/inbound\/mixed/d' adapter/inbound.go
@@ -39,6 +40,7 @@ jobs:
         sed -i '/inbound\/wireguard/d' adapter/inbound.go
         
         # ========== 出站协议清理 ==========
+        # 保留: shadowsocks, hysteria2, tuic, http, dns, direct, block
         sed -i '/outbound\/tor/d' adapter/outbound.go
         sed -i '/outbound\/ssh/d' adapter/outbound.go
         sed -i '/outbound\/urltest/d' adapter/outbound.go
@@ -61,97 +63,6 @@ jobs:
         grep -rl "ShadowTLS" --include="*.go" . | while read file; do
           sed -i '/ShadowTLS/d' "$file"
         done
-        
-        # ========== 安全注释 GeoIP/GeoSite（逐行注释，避免语法错误） ==========
-        python3 << 'PYEOF'
-        import re, os
-
-        # 1. 处理 option/route.go
-        with open('option/route.go', 'r') as f:
-            lines = f.readlines()
-
-        # 标记需要注释的字段行
-        field_patterns = [
-            re.compile(r'\s*GeoIP\s+\*GeoIPOptions\s+`json:"geoip,omitempty"`'),
-            re.compile(r'\s*GeoSite\s+\*GeoSiteOptions\s+`json:"geosite,omitempty"`'),
-            re.compile(r'\s*GeoIP\s+\[\]string\s+`json:"geoip,omitempty"`'),
-            re.compile(r'\s*GeoSite\s+\[\]string\s+`json:"geosite,omitempty"`'),
-        ]
-
-        # 标记类型定义开始和结束
-        type_start_patterns = [
-            'type GeoIPOptions struct {',
-            'type GeoSiteOptions struct {'
-        ]
-
-        i = 0
-        new_lines = []
-        in_geo_type = False
-        brace_depth = 0
-
-        while i < len(lines):
-            line = lines[i]
-            stripped = line.strip()
-            
-            # 检查是否进入要注释的类型定义
-            if not in_geo_type:
-                for start in type_start_patterns:
-                    if stripped.startswith(start):
-                        in_geo_type = True
-                        brace_depth = 0
-                        # 注释类型定义的第一行
-                        indent = line[:len(line)-len(line.lstrip())]
-                        new_lines.append(f"{indent}// {stripped}\n")
-                        i += 1
-                        break
-                else:
-                    # 检查是否是字段行
-                    for pattern in field_patterns:
-                        if pattern.match(line):
-                            indent = line[:len(line)-len(line.lstrip())]
-                            new_lines.append(f"{indent}// {stripped}\n")
-                            break
-                    else:
-                        new_lines.append(line)
-                    i += 1
-                continue
-            
-            # 在类型定义内部
-            if in_geo_type:
-                # 统计大括号深度，以找到类型定义的结束
-                brace_depth += line.count('{') - line.count('}')
-                indent = line[:len(line)-len(line.lstrip())]
-                new_lines.append(f"{indent}// {stripped}\n")
-                
-                if brace_depth == 0 and stripped == '}':
-                    in_geo_type = False
-                i += 1
-
-        with open('option/route.go', 'w') as f:
-            f.writelines(new_lines)
-
-        # 2. 处理其他文件中的 GeoIP/GeoSite 引用（注释整行）
-        for root, dirs, files in os.walk('.'):
-            for file in files:
-                if file.endswith('.go'):
-                    filepath = os.path.join(root, file)
-                    with open(filepath, 'r') as f:
-                        content = f.readlines()
-                    new_content = []
-                    changed = False
-                    for line in content:
-                        if 'GeoIP' in line or 'GeoSite' in line:
-                            indent = line[:len(line)-len(line.lstrip())]
-                            stripped = line.lstrip()
-                            new_content.append(f"{indent}// {stripped}")
-                            changed = True
-                        else:
-                            new_content.append(line)
-                    if changed:
-                        with open(filepath, 'w') as f:
-                            f.writelines(new_content)
-        print("GeoIP/GeoSite commented safely.")
-        PYEOF
         
         # ========== 端点清理 ==========
         find . -name "*tailscale*" -type d -exec rm -rf {} + 2>/dev/null || true
