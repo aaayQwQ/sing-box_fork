@@ -65,15 +65,17 @@ jobs:
           sed -i '/v2raygrpc/d;/v2rayhttp/d;/v2rayquic/d;/v2raywebsocket/d;/shadowtls/d;/tomato/d' "$file"
         done
         
-        # ========== 修复 constant/proxy.go ==========
+        # ========== 修复所有 ShadowTLS 引用 ==========
         sed -i '/TypeShadowTLS/d' constant/proxy.go
         sed -i '/ShadowTLS/d' constant/proxy.go
+        sed -i '/TypeShadowTLS/d' option/inbound.go
+        sed -i '/TypeShadowTLS/d' option/outbound.go
         
-        # ========== 删除 V2RayAPI（精确匹配字段和类型定义） ==========
+        # ========== 删除 V2RayAPI ==========
         sed -i '/V2RayAPI[[:space:]]*\*V2RayAPIOptions/d' option/experimental.go
         sed -i '/type V2RayAPIOptions struct/,/^}/d' option/experimental.go
         
-        # ========== 删除 GeoIP/GeoSite（精确匹配字段和类型定义） ==========
+        # ========== 删除 GeoIP/GeoSite ==========
         sed -i '/GeoIP[[:space:]]*\*GeoIPOptions/d' option/route.go
         sed -i '/GeoSite[[:space:]]*\*GeoSiteOptions/d' option/route.go
         sed -i '/type GeoIPOptions struct/,/^}/d' option/route.go
