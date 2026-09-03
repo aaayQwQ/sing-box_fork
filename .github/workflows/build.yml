@@ -1,4 +1,4 @@
-name: Build sing-box 1.8.14 Windows 386 Client
+name: Build sing-box lite 1.8.14 Windows 386 Client
 
 on:
   workflow_dispatch:
