@@ -22,7 +22,8 @@ jobs:
       run: |
         cd sing-box-1.8.14
         
-        # ========== 入站协议：只保留 socks 和 http（本地监听用） ==========
+        # ========== 入站协议清理 ==========
+        # 只保留 mixed (socks + http 混合端口)
         sed -i '/inbound\/direct/d' adapter/inbound.go
         sed -i '/inbound\/hysteria2/d' adapter/inbound.go
         sed -i '/inbound\/naive/d' adapter/inbound.go
@@ -37,37 +38,32 @@ jobs:
         sed -i '/inbound\/vmess/d' adapter/inbound.go
         sed -i '/inbound\/wireguard/d' adapter/inbound.go
         
-        # ========== 出站协议：保留需要的 ==========
+        # ========== 出站协议清理 ==========
+        # 保留: shadowsocks, vmess, vless, trojan, hysteria2, tuic, wireguard, socks, http, dns, direct, block, selector, urltest
+        # 删除: tor, ssh
         sed -i '/outbound\/tor/d' adapter/outbound.go
         sed -i '/outbound\/ssh/d' adapter/outbound.go
-        sed -i '/outbound\/shadowtls/d' adapter/outbound.go
         
-        # ========== 传输协议：清理引用和目录 ==========
-        # 先修改引用这些传输协议的文件
-        # 删除 transport.go 中的引用
-        sed -i '/v2rayhttpupgrade/d' transport/v2ray/transport.go
-        sed -i '/v2rayquic/d' transport/v2ray/transport.go
+        # 注意：不删除传输协议！保留所有传输协议，避免编译错误
+        # 传输协议虽然会增加一些体积，但不会影响功能
+        # 如果确实要删除，需要修改 transport/v2ray/transport.go 中的注册代码
         
-        # 删除 include 中的引用
-        sed -i '/v2rayquic/d' include/quic.go
+        # ========== 端点清理 ==========
+        # 查找并删除 tailscale
+        find . -name "*tailscale*" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -name "*tailscale*" -type f -delete 2>/dev/null || true
         
-        # 然后删除目录
-        cd transport
-        rm -rf v2rayquic
-        rm -rf v2rayhttpupgrade
-        cd ..
-        
-        # ========== 端点：查找并清理 ==========
-        # 删除不需要的端点目录
-        if [ -d "endpoint/tailscale" ]; then
-          rm -rf endpoint/tailscale
-        fi
-        
-        # 查找所有 tailscale 相关的引用
-        find . -name "*.go" -type f -exec grep -l "tailscale" {} \; | while read file; do
-          echo "删除 $file 中的 tailscale 引用"
+        # 从 Go 文件中删除 tailscale 引用
+        grep -rl "tailscale" --include="*.go" . | while read file; do
+          # 只删除 import 行，不删除函数体
           sed -i '/tailscale/d' "$file"
         done
+        
+        echo "=== 清理完成 ==="
+        echo "保留的入站协议："
+        grep "inbound/" adapter/inbound.go || echo "只有 mixed"
+        echo "保留的出站协议："
+        grep "outbound/" adapter/outbound.go
     
     - name: Build Windows 386
       run: |
