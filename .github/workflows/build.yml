@@ -23,7 +23,6 @@ jobs:
         cd sing-box-1.8.14
         
         # ========== 入站协议清理 ==========
-        # 只保留 http 入站
         sed -i '/inbound\/direct/d' adapter/inbound.go
         sed -i '/inbound\/hysteria2/d' adapter/inbound.go
         sed -i '/inbound\/mixed/d' adapter/inbound.go
@@ -40,8 +39,6 @@ jobs:
         sed -i '/inbound\/wireguard/d' adapter/inbound.go
         
         # ========== 出站协议清理 ==========
-        # 保留: shadowsocks, hysteria2, tuic, http, dns, direct, block
-        # 删除: tor, ssh, urltest, wireguard, vmess, vless, trojan, socks, selector
         sed -i '/outbound\/tor/d' adapter/outbound.go
         sed -i '/outbound\/ssh/d' adapter/outbound.go
         sed -i '/outbound\/urltest/d' adapter/outbound.go
@@ -52,8 +49,7 @@ jobs:
         sed -i '/outbound\/socks/d' adapter/outbound.go
         sed -i '/outbound\/selector/d' adapter/outbound.go
         
-        # ========== 传输协议：全部删除 ==========
-        # TUIC、Hysteria2、Shadowsocks 不需要这些传输协议
+        # ========== 传输协议删除 ==========
         cd transport
         rm -rf v2raygrpc
         rm -rf v2rayhttp
@@ -65,44 +61,31 @@ jobs:
         rm -rf shadowsocks
         cd ..
         
-        # 删除所有传输协议引用
         grep -rl "v2raygrpc\|v2rayhttp\|v2rayquic\|v2raywebsocket\|shadowtls\|tomato" --include="*.go" . | while read file; do
           sed -i '/v2raygrpc/d;/v2rayhttp/d;/v2rayquic/d;/v2raywebsocket/d;/shadowtls/d;/tomato/d' "$file"
         done
         
         # ========== 修复 constant/proxy.go ==========
-        # 删除 ShadowTLS 相关定义
         sed -i '/TypeShadowTLS/d' constant/proxy.go
         sed -i '/ShadowTLS/d' constant/proxy.go
         
-        # ========== 删除 GeoIP/GeoSite ==========
-        grep -rl "geoip\|GeoIP\|geosite\|GeoSite" --include="*.go" . | while read file; do
-          sed -i '/geoip/d;/GeoIP/d;/geosite/d;/GeoSite/d' "$file"
-        done
+        # ========== 修复 option/experimental.go（保留文件，只删引用） ==========
+        sed -i '/V2RayAPI/d' option/experimental.go
+        sed -i '/v2ray_api/d' option/experimental.go
         
-        # ========== 删除 V2Ray API ==========
-        grep -rl "v2ray_api\|V2RayAPI\|v2rayapi" --include="*.go" . | while read file; do
-          sed -i '/v2ray_api/d;/V2RayAPI/d;/v2rayapi/d' "$file"
-        done
+        # ========== 修复 option/route.go（保留文件，只删引用） ==========
+        sed -i '/GeoIP/d' option/route.go
+        sed -i '/GeoSite/d' option/route.go
         
         # ========== 端点清理 ==========
-        # 查找并删除 tailscale
         find . -name "*tailscale*" -type d -exec rm -rf {} + 2>/dev/null || true
         find . -name "*tailscale*" -type f -delete 2>/dev/null || true
         
-        # 从 Go 文件中删除 tailscale 引用
         grep -rl "tailscale" --include="*.go" . | while read file; do
           sed -i '/tailscale/d' "$file"
         done
         
         echo "=== 清理完成 ==="
-        echo "保留的入站协议："
-        grep "inbound/" adapter/inbound.go || true
-        echo "保留的出站协议："
-        grep "outbound/" adapter/outbound.go || true
-        echo "保留的传输协议："
-        ls transport/ || true
-        echo "=== 继续编译 ==="
     
     - name: Build Windows 386
       run: |
