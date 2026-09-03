@@ -1,0 +1,81 @@
+name: Build sing-box 1.8.14 Windows 386 Client
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+    
+    - name: Download source
+      run: |
+        wget https://github.com/SagerNet/sing-box/archive/refs/tags/v1.8.14.tar.gz
+        tar -xzf v1.8.14.tar.gz
+    
+    - name: Remove unwanted protocols (client only)
+      run: |
+        cd sing-box-1.8.14
+        
+        # ========== 入站协议：只保留 socks 和 http（本地监听用） ==========
+        # 删除所有其他入站协议
+        sed -i '/inbound\/direct/d' adapter/inbound.go
+        sed -i '/inbound\/hysteria2/d' adapter/inbound.go
+        sed -i '/inbound\/naive/d' adapter/inbound.go
+        sed -i '/inbound\/shadowsocks/d' adapter/inbound.go
+        sed -i '/inbound\/shadowtls/d' adapter/inbound.go
+        sed -i '/inbound\/trojan/d' adapter/inbound.go
+        sed -i '/inbound\/tuic/d' adapter/inbound.go
+        sed -i '/inbound\/tun/d' adapter/inbound.go
+        sed -i '/inbound\/redirect/d' adapter/inbound.go
+        sed -i '/inbound\/tproxy/d' adapter/inbound.go
+        sed -i '/inbound\/vless/d' adapter/inbound.go
+        sed -i '/inbound\/vmess/d' adapter/inbound.go
+        sed -i '/inbound\/wireguard/d' adapter/inbound.go
+        
+        # ========== 出站协议：保留需要的 ==========
+        # 保留: shadowsocks, vmess, vless, trojan, hysteria2, tuic, wireguard, socks, http, dns, direct, block, selector, urltest
+        # 删除不需要的出站
+        sed -i '/outbound\/tor/d' adapter/outbound.go
+        sed -i '/outbound\/ssh/d' adapter/outbound.go
+        sed -i '/outbound\/shadowtls/d' adapter/outbound.go
+        
+        # ========== 传输协议：保留常用的 ==========
+        cd transport
+        # 保留: websocket, grpc, http, shadowtls, tomato
+        # 删除不需要的
+        rm -rf v2rayquic        # QUIC
+        rm -rf v2rayhttpupgrade # HTTP Upgrade
+        cd ../..
+        
+        # ========== 端点：客户端不需要 ==========
+        sed -i '/endpoint\/tailscale/d' adapter/endpoint.go
+        sed -i '/endpoint\/wireguard/d' adapter/endpoint.go
+    
+    - name: Build Windows 386
+      run: |
+        cd sing-box-1.8.14
+        mkdir -p dist
+        
+        GOOS=windows GOARCH=386 go build \
+          -trimpath \
+          -ldflags "-s -w" \
+          -tags "with_utls,with_reality_server,with_clash_api,with_quic,with_wireguard" \
+          -o dist/sing-box-windows-386.exe \
+          ./cmd/sing-box
+    
+    - name: Package
+      run: |
+        cd sing-box-1.8.14/dist
+        zip sing-box-1.8.14-windows-386-client.zip sing-box-windows-386.exe
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sing-box-1.8.14-windows-386-client
+        path: sing-box-1.8.14/dist/sing-box-1.8.14-windows-386-client.zip
