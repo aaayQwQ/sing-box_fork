@@ -49,13 +49,14 @@ jobs:
         sed -i '/outbound\/socks/d' adapter/outbound.go
         sed -i '/outbound\/selector/d' adapter/outbound.go
         
-        # ========== 彻底删除所有 ShadowTLS 相关文件 ==========
+        # ========== 彻底删除所有 ShadowTLS 相关文件和引用 ==========
         rm -f outbound/shadowtls.go
         rm -rf outbound/shadowtls
         rm -f inbound/shadowtls.go
         rm -rf inbound/shadowtls
         rm -rf transport/shadowtls
         rm -f transport/shadowtls.go
+        rm -f option/shadowtls.go
         
         # 删除所有文件中包含 ShadowTLS 或 TypeShadowTLS 的行
         grep -rl "ShadowTLS" --include="*.go" . | while read file; do
