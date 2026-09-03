@@ -7,6 +7,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha1"
+	"crypto/tls"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -40,16 +41,13 @@ const (
 
 // hkdfSHA1 实现 HKDF-SHA1，提取和扩展两个阶段
 func hkdfSHA1(secret, salt, info []byte, length int) []byte {
-	// 如果 salt 为空，使用长度等于 hash 输出大小的零字节串（SHA1 输出 20 字节）
 	if len(salt) == 0 {
 		salt = make([]byte, sha1.Size)
 	}
-	// 提取阶段
 	extract := hmac.New(sha1.New, salt)
 	extract.Write(secret)
 	prk := extract.Sum(nil)
 
-	// 扩展阶段
 	var result []byte
 	t := []byte{}
 	counter := byte(1)
@@ -68,12 +66,11 @@ func hkdfSHA1(secret, salt, info []byte, length int) []byte {
 // ShadowsocksAEAD 封装 AEAD 加密连接
 type ShadowsocksAEAD struct {
 	net.Conn
-	cipher  cipher.AEAD
-	nonce   []byte
+	cipher cipher.AEAD
+	nonce  []byte
 }
 
 func NewShadowsocksAEAD(conn net.Conn, masterKey []byte) (*ShadowsocksAEAD, error) {
-	// 生成随机 salt
 	salt := make([]byte, saltSize)
 	if _, err := rand.Read(salt); err != nil {
 		return nil, err
@@ -82,7 +79,6 @@ func NewShadowsocksAEAD(conn net.Conn, masterKey []byte) (*ShadowsocksAEAD, erro
 		return nil, err
 	}
 
-	// 从主密钥和 salt 派生会话密钥
 	sessionKey := hkdfSHA1(masterKey, salt, []byte("ss-subkey"), keySize)
 
 	block, err := aes.NewCipher(sessionKey)
@@ -102,7 +98,6 @@ func NewShadowsocksAEAD(conn net.Conn, masterKey []byte) (*ShadowsocksAEAD, erro
 	}, nil
 }
 
-// incrementNonce 小端递增
 func (s *ShadowsocksAEAD) incrementNonce() {
 	for i := 0; i < len(s.nonce); i++ {
 		s.nonce[i]++
@@ -119,7 +114,6 @@ func (s *ShadowsocksAEAD) Write(p []byte) (int, error) {
 		if len(chunk) > maxChunk {
 			chunk = chunk[:maxChunk]
 		}
-		// 加密长度
 		lenBuf := make([]byte, 2)
 		binary.BigEndian.PutUint16(lenBuf, uint16(len(chunk)))
 		encLen := s.cipher.Seal(nil, s.nonce, lenBuf, nil)
@@ -127,7 +121,6 @@ func (s *ShadowsocksAEAD) Write(p []byte) (int, error) {
 		if _, err := s.Conn.Write(encLen); err != nil {
 			return total, err
 		}
-		// 加密数据
 		encData := s.cipher.Seal(nil, s.nonce, chunk, nil)
 		s.incrementNonce()
 		if _, err := s.Conn.Write(encData); err != nil {
@@ -140,7 +133,6 @@ func (s *ShadowsocksAEAD) Write(p []byte) (int, error) {
 }
 
 func (s *ShadowsocksAEAD) Read(p []byte) (int, error) {
-	// 读取加密长度
 	lenBuf := make([]byte, 2+tagSize)
 	if _, err := io.ReadFull(s.Conn, lenBuf); err != nil {
 		return 0, err
@@ -152,7 +144,6 @@ func (s *ShadowsocksAEAD) Read(p []byte) (int, error) {
 	s.incrementNonce()
 	length := int(binary.BigEndian.Uint16(decLen))
 
-	// 读取加密数据
 	buf := make([]byte, length+tagSize)
 	if _, err := io.ReadFull(s.Conn, buf); err != nil {
 		return 0, err
@@ -168,23 +159,18 @@ func (s *ShadowsocksAEAD) Read(p []byte) (int, error) {
 
 // dialShadowsocks 建立到目标地址的 Shadowsocks 加密连接
 func dialShadowsocks(ssServer string, ssPort int, password string, target string) (net.Conn, error) {
-	// 连接服务器
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ssServer, ssPort), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
 
-	// 从密码派生主密钥（HKDF-SHA1(password, nil, "ss-subkey")）
 	masterKey := hkdfSHA1([]byte(password), nil, []byte("ss-subkey"), keySize)
-
-	// 创建加密连接
 	ssConn, err := NewShadowsocksAEAD(conn, masterKey)
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
 
-	// 解析目标地址
 	host, portStr, err := net.SplitHostPort(target)
 	if err != nil {
 		ssConn.Close()
@@ -196,7 +182,6 @@ func dialShadowsocks(ssServer string, ssPort int, password string, target string
 		return nil, err
 	}
 
-	// 构造 SOCKS5 地址
 	var addr []byte
 	if ip := net.ParseIP(host); ip != nil {
 		if ip4 := ip.To4(); ip4 != nil {
@@ -218,7 +203,6 @@ func dialShadowsocks(ssServer string, ssPort int, password string, target string
 	binary.BigEndian.PutUint16(portBytes, uint16(port))
 	addr = append(addr, portBytes...)
 
-	// 发送目标地址
 	if _, err := ssConn.Write(addr); err != nil {
 		ssConn.Close()
 		return nil, err
@@ -328,7 +312,8 @@ func main() {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			handleHTTP(w, r, cfg.Server, cfg.Port, cfg.Password)
 		}),
-		TLSNextProto: make(map[string]func(*http.Server, *net.TCPConn, http.Handler)),
+		// 禁用 HTTP/2，使用正确的类型签名
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 
 	if err := server.Serve(listener); err != nil {
