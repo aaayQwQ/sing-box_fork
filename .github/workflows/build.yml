@@ -70,6 +70,16 @@ jobs:
           sed -i '/v2raygrpc/d;/v2rayhttp/d;/v2rayquic/d;/v2raywebsocket/d;/shadowtls/d;/tomato/d' "$file"
         done
         
+        # ========== 删除 GeoIP/GeoSite ==========
+        grep -rl "geoip\|GeoIP\|geosite\|GeoSite" --include="*.go" . | while read file; do
+          sed -i '/geoip/d;/GeoIP/d;/geosite/d;/GeoSite/d' "$file"
+        done
+        
+        # ========== 删除 V2Ray API ==========
+        grep -rl "v2ray_api\|V2RayAPI\|v2rayapi" --include="*.go" . | while read file; do
+          sed -i '/v2ray_api/d;/V2RayAPI/d;/v2rayapi/d' "$file"
+        done
+        
         # ========== 端点清理 ==========
         # 查找并删除 tailscale
         find . -name "*tailscale*" -type d -exec rm -rf {} + 2>/dev/null || true
