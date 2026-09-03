@@ -39,10 +39,11 @@ jobs:
         sed -i '/inbound\/wireguard/d' adapter/inbound.go
         
         # ========== 出站协议清理 ==========
-        # 保留: shadowsocks, vmess, vless, trojan, hysteria2, tuic, wireguard, socks, http, dns, direct, block, selector, urltest
-        # 删除: tor, ssh
+        # 保留: shadowsocks, vmess, vless, trojan, hysteria2, tuic, wireguard, socks, http, dns, direct, block, selector
+        # 删除: tor, ssh, urltest
         sed -i '/outbound\/tor/d' adapter/outbound.go
         sed -i '/outbound\/ssh/d' adapter/outbound.go
+        sed -i '/outbound\/urltest/d' adapter/outbound.go
         
         # ========== 端点清理 ==========
         # 查找并删除 tailscale
@@ -69,7 +70,7 @@ jobs:
         GOOS=windows GOARCH=386 go build \
           -trimpath \
           -ldflags "-s -w" \
-          -tags "with_utls,with_reality_server,with_clash_api,with_quic,with_wireguard" \
+          -tags "with_utls,with_reality_server,with_quic,with_wireguard" \
           -o dist/sing-box-windows-386.exe \
           ./cmd/sing-box
     
