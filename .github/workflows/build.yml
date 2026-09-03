@@ -17,6 +17,13 @@ jobs:
       run: |
         wget https://github.com/SagerNet/sing-box/archive/refs/tags/v1.8.14.tar.gz
         tar -xzf v1.8.14.tar.gz
+        cd sing-box-1.8.14
+        echo "=== adapter 目录结构 ==="
+        ls -la adapter/
+        echo "=== 查找 endpoint 相关文件 ==="
+        find . -name "*endpoint*" -type f
+        echo "=== 查找所有 .go 文件中的 endpoint 导入 ==="
+        grep -r "endpoint/" --include="*.go" . | head -20
     
     - name: Remove unwanted protocols (client only)
       run: |
@@ -39,7 +46,6 @@ jobs:
         sed -i '/inbound\/wireguard/d' adapter/inbound.go
         
         # ========== 出站协议：保留需要的 ==========
-        # 保留: shadowsocks, vmess, vless, trojan, hysteria2, tuic, wireguard, socks, http, dns, direct, block, selector, urltest
         # 删除不需要的出站
         sed -i '/outbound\/tor/d' adapter/outbound.go
         sed -i '/outbound\/ssh/d' adapter/outbound.go
@@ -53,9 +59,16 @@ jobs:
         rm -rf v2rayhttpupgrade # HTTP Upgrade
         cd ../..
         
-        # ========== 端点：客户端不需要 ==========
-        sed -i '/endpoint\/tailscale/d' adapter/endpoint.go
-        sed -i '/endpoint\/wireguard/d' adapter/endpoint.go
+        # ========== 端点：查找并清理 ==========
+        # 查找并删除不需要的端点目录
+        if [ -d "endpoint/tailscale" ]; then
+          rm -rf endpoint/tailscale
+          echo "已删除 endpoint/tailscale"
+        fi
+        
+        # 查找所有可能的端点注册文件
+        echo "查找端点注册位置..."
+        grep -r "tailscale" --include="*.go" . | head -10 || true
     
     - name: Build Windows 386
       run: |
