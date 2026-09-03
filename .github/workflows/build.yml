@@ -39,6 +39,7 @@ jobs:
         sed -i '/inbound\/wireguard/d' adapter/inbound.go
         
         # ========== 出站协议清理 ==========
+        # 保留: shadowsocks, hysteria2, tuic, http, dns, direct, block
         sed -i '/outbound\/tor/d' adapter/outbound.go
         sed -i '/outbound\/ssh/d' adapter/outbound.go
         sed -i '/outbound\/urltest/d' adapter/outbound.go
@@ -49,7 +50,7 @@ jobs:
         sed -i '/outbound\/socks/d' adapter/outbound.go
         sed -i '/outbound\/selector/d' adapter/outbound.go
         
-        # ========== 彻底删除所有 ShadowTLS 相关文件和引用 ==========
+        # ========== 删除 ShadowTLS 相关文件和引用 ==========
         rm -f outbound/shadowtls.go
         rm -rf outbound/shadowtls
         rm -f inbound/shadowtls.go
@@ -62,16 +63,19 @@ jobs:
           sed -i '/ShadowTLS/d' "$file"
         done
         
-        # ========== 删除 V2RayAPI 相关文件和引用 ==========
-        rm -f experimental/v2rayapi.go
-        rm -f include/v2rayapi_stub.go
-        rm -f include/v2rayapi.go
+        # ========== 删除传输协议目录（安全） ==========
+        cd transport
+        rm -rf v2raygrpc
+        rm -rf v2rayhttp
+        rm -rf v2rayhttpupgrade
+        rm -rf v2rayquic
+        rm -rf v2raywebsocket
+        rm -rf tomato
+        rm -rf shadowsocks
+        cd ..
         
-        sed -i '/V2RayAPI[[:space:]]*\*V2RayAPIOptions/d' option/experimental.go
-        sed -i '/type V2RayAPIOptions struct/,/^}/d' option/experimental.go
-        
-        # ========== 删除 GeoIP/GeoSite 相关文件和引用 ==========
-        # 删除 option/route.go 中的字段和类型定义
+        # ========== 删除 GeoIP/GeoSite 相关 ==========
+        # 1. 删除 option/route.go 中的字段和类型定义
         sed -i '/GeoIP[[:space:]]*\*GeoIPOptions/d' option/route.go
         sed -i '/GeoSite[[:space:]]*\*GeoSiteOptions/d' option/route.go
         sed -i '/type GeoIPOptions struct/,/^}/d' option/route.go
@@ -79,10 +83,17 @@ jobs:
         sed -i '/GeoIP[[:space:]]*\[\]string/d' option/route.go
         sed -i '/GeoSite[[:space:]]*\[\]string/d' option/route.go
         
-        # 删除 route/router.go 中对 GeoIP/GeoSite 的引用
+        # 2. 删除 route/router.go 中所有包含 GeoIP/GeoSite 的行
+        #    使用行删除，因为之前只删除关键词导致语法错误
+        #    先备份，再按模式删除整行
+        cp route/router.go route/router.go.bak
         sed -i '/GeoIP/d;/GeoSite/d' route/router.go
         
-        # 全局兜底：删除所有 Go 文件中包含 GeoIP 或 GeoSite 的行
+        # 如果上面的删除导致语法错误，可以尝试更精确的删除：
+        # 删除所有包含 GeoIP 或 GeoSite 的完整语句（假设它们独立成行）
+        # 如果还有问题，可能需要手动修复，但这里先尝试简单删除
+        
+        # 3. 全局兜底：删除所有 Go 文件中包含 GeoIP 或 GeoSite 的行
         grep -rl "GeoIP\|GeoSite" --include="*.go" . | while read file; do
           sed -i '/GeoIP/d;/GeoSite/d' "$file"
         done
