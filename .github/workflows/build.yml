@@ -1,4 +1,4 @@
-name: Build Shadowsocks Lite
+name: Build Shadowsocks Lite Windows 386
 
 on:
   workflow_dispatch:
@@ -6,49 +6,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        include:
-          - goos: windows
-            goarch: amd64
-            ext: .exe
-          - goos: windows
-            goarch: 386
-            ext: .exe
-          - goos: linux
-            goarch: amd64
-            ext: ""
-          - goos: linux
-            goarch: arm64
-            ext: ""
-          - goos: darwin
-            goarch: amd64
-            ext: ""
-          - goos: darwin
-            goarch: arm64
-            ext: ""
-    
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    
     - name: Setup Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.22'
-    
     - name: Build
       run: |
         mkdir -p dist
-        GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
-          -trimpath \
-          -ldflags "-s -w" \
-          -o dist/shadowsocks-lite-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} \
+        GOOS=windows GOARCH=386 go build \
+          -trimpath -ldflags "-s -w" \
+          -o dist/shadowsocks-lite-windows-386.exe \
           main.go
-    
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: shadowsocks-lite-${{ matrix.goos }}-${{ matrix.goarch }}
+        name: shadowsocks-lite-windows-386
         path: dist/
