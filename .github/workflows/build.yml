@@ -49,17 +49,23 @@ jobs:
         sed -i '/outbound\/socks/d' adapter/outbound.go
         sed -i '/outbound\/selector/d' adapter/outbound.go
         
+        # ========== 删除所有 ShadowTLS 文件 ==========
+        rm -f outbound/shadowtls.go
+        rm -rf outbound/shadowtls
+        rm -rf inbound/shadowtls
+        
         # ========== 修复所有 ShadowTLS 引用 ==========
         sed -i '/TypeShadowTLS/d' constant/proxy.go
         sed -i '/ShadowTLS/d' constant/proxy.go
         sed -i '/TypeShadowTLS/d' option/inbound.go
         sed -i '/TypeShadowTLS/d' option/outbound.go
+        sed -i '/TypeShadowTLS/d' outbound/builder.go
         
-        # ========== 删除 V2RayAPI ==========
-        # 删除 experimental/v2rayapi.go（整个文件）
+        # ========== 删除 V2RayAPI 相关文件 ==========
         rm -f experimental/v2rayapi.go
+        rm -f include/v2rayapi_stub.go
+        rm -f include/v2rayapi.go
         
-        # 删除 option/experimental.go 中的 V2RayAPI 字段和类型定义
         sed -i '/V2RayAPI[[:space:]]*\*V2RayAPIOptions/d' option/experimental.go
         sed -i '/type V2RayAPIOptions struct/,/^}/d' option/experimental.go
         
