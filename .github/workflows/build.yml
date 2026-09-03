@@ -1,4 +1,4 @@
-name: Build sing-box 1.8.14 Windows 386 Client
+name: Build Shadowsocks Lite
 
 on:
   workflow_dispatch:
@@ -7,92 +7,48 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: windows
+            goarch: 386
+            ext: .exe
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+    
     steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
     - name: Setup Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.22'
     
-    - name: Download source
+    - name: Build
       run: |
-        wget https://github.com/SagerNet/sing-box/archive/refs/tags/v1.8.14.tar.gz
-        tar -xzf v1.8.14.tar.gz
-    
-    - name: Remove unwanted protocols (client only)
-      run: |
-        cd sing-box-1.8.14
-        
-        # ========== 入站协议清理 ==========
-        # 只保留 http 入站
-        sed -i '/inbound\/direct/d' adapter/inbound.go
-        sed -i '/inbound\/hysteria2/d' adapter/inbound.go
-        sed -i '/inbound\/mixed/d' adapter/inbound.go
-        sed -i '/inbound\/naive/d' adapter/inbound.go
-        sed -i '/inbound\/shadowsocks/d' adapter/inbound.go
-        sed -i '/inbound\/shadowtls/d' adapter/inbound.go
-        sed -i '/inbound\/trojan/d' adapter/inbound.go
-        sed -i '/inbound\/tuic/d' adapter/inbound.go
-        sed -i '/inbound\/tun/d' adapter/inbound.go
-        sed -i '/inbound\/redirect/d' adapter/inbound.go
-        sed -i '/inbound\/tproxy/d' adapter/inbound.go
-        sed -i '/inbound\/vless/d' adapter/inbound.go
-        sed -i '/inbound\/vmess/d' adapter/inbound.go
-        sed -i '/inbound\/wireguard/d' adapter/inbound.go
-        
-        # ========== 出站协议清理 ==========
-        # 保留: shadowsocks, hysteria2, tuic, http, dns, direct, block
-        sed -i '/outbound\/tor/d' adapter/outbound.go
-        sed -i '/outbound\/ssh/d' adapter/outbound.go
-        sed -i '/outbound\/urltest/d' adapter/outbound.go
-        sed -i '/outbound\/wireguard/d' adapter/outbound.go
-        sed -i '/outbound\/vmess/d' adapter/outbound.go
-        sed -i '/outbound\/vless/d' adapter/outbound.go
-        sed -i '/outbound\/trojan/d' adapter/outbound.go
-        sed -i '/outbound\/socks/d' adapter/outbound.go
-        sed -i '/outbound\/selector/d' adapter/outbound.go
-        
-        # ========== 删除 ShadowTLS 相关文件和引用 ==========
-        rm -f outbound/shadowtls.go
-        rm -rf outbound/shadowtls
-        rm -f inbound/shadowtls.go
-        rm -rf inbound/shadowtls
-        rm -rf transport/shadowtls
-        rm -f transport/shadowtls.go
-        rm -f option/shadowtls.go
-        
-        grep -rl "ShadowTLS" --include="*.go" . | while read file; do
-          sed -i '/ShadowTLS/d' "$file"
-        done
-        
-        # ========== 端点清理 ==========
-        find . -name "*tailscale*" -type d -exec rm -rf {} + 2>/dev/null || true
-        find . -name "*tailscale*" -type f -delete 2>/dev/null || true
-        
-        grep -rl "tailscale" --include="*.go" . | while read file; do
-          sed -i '/tailscale/d' "$file"
-        done
-        
-        echo "=== 清理完成 ==="
-    
-    - name: Build Windows 386
-      run: |
-        cd sing-box-1.8.14
         mkdir -p dist
-        
-        GOOS=windows GOARCH=386 go build \
+        GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
           -trimpath \
           -ldflags "-s -w" \
-          -tags "with_utls,with_quic" \
-          -o dist/sing-box-windows-386.exe \
-          ./cmd/sing-box
-    
-    - name: Package
-      run: |
-        cd sing-box-1.8.14/dist
-        zip sing-box-1.8.14-windows-386-client.zip sing-box-windows-386.exe
+          -o dist/shadowsocks-lite-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} \
+          main.go
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: sing-box-1.8.14-windows-386-client
-        path: sing-box-1.8.14/dist/sing-box-1.8.14-windows-386-client.zip
+        name: shadowsocks-lite-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: dist/
