@@ -1,27 +1,59 @@
-name: Build Shadowsocks Lite Windows 386
+name: Build sing-box 1.2.5 TUIC Server only
 
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
+    
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Setup Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
-    - name: Build
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Install build dependencies
       run: |
-        mkdir -p dist
-        GOOS=windows GOARCH=386 go build \
-          -trimpath -ldflags "-s -w" \
-          -o dist/shadowsocks-lite-windows-386.exe \
-          main.go
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
+        sudo apt update
+        sudo apt install -y \
+          build-essential \
+          pkg-config \
+          libssl-dev \
+          git \
+          curl
+        
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
       with:
-        name: shadowsocks-lite-windows-386
-        path: dist/
+        toolchain: 1.65.0
+        override: true
+        target: x86_64-unknown-linux-musl
+        
+    - name: Clone sing-box v1.2.5
+      run: |
+        git clone https://github.com/SagerNet/sing-box.git
+        cd sing-box
+        git checkout v1.2.5
+        
+    - name: Build sing-box server only (no client protocols)
+      run: |
+        cd sing-box
+        cargo build --release \
+          --target x86_64-unknown-linux-musl \
+          --no-default-features \
+          --features="tuic,tls,log,json"
+        
+    - name: Strip binary to reduce size
+      run: |
+        cd sing-box
+        strip target/x86_64-unknown-linux-musl/release/sing-box
+        
+    - name: Upload binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: sing-box-1.2.5-tuic-server
+        path: sing-box/target/x86_64-unknown-linux-musl/release/sing-box
+        retention-days: 30
