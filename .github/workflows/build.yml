@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-16.04   # 改成 Ubuntu 16.04
+    runs-on: ubuntu-20.04   # 改回 20.04
     
     steps:
     - name: Checkout code
@@ -38,7 +38,7 @@ jobs:
         cd sing-box
         git checkout v1.2.5
         
-    - name: Build sing-box server only
+    - name: Build sing-box server only (musl static)
       run: |
         cd sing-box
         cargo build --release \
