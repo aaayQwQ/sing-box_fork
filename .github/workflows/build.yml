@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-16.04   # 改成 Ubuntu 16.04
     
     steps:
     - name: Checkout code
@@ -38,7 +38,7 @@ jobs:
         cd sing-box
         git checkout v1.2.5
         
-    - name: Build sing-box server only (no client protocols)
+    - name: Build sing-box server only
       run: |
         cd sing-box
         cargo build --release \
@@ -46,7 +46,7 @@ jobs:
           --no-default-features \
           --features="tuic,tls,log,json"
         
-    - name: Strip binary to reduce size
+    - name: Strip binary
       run: |
         cd sing-box
         strip target/x86_64-unknown-linux-musl/release/sing-box
